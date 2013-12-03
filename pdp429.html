@@ -1,0 +1,421 @@
+
+<!-- saved from url=(0058)http://www.cs.utexas.edu/users/peterson/pdp429/pdp429.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title> THE PDP-429 </title>
+<style type="text/css"></style>
+<style type="text/css"></style></head>
+
+
+<body style=""><h2> THE PDP-429 </h2>
+
+<p>
+The PDP-8 was a 12-bit machine; how can we expand it to a more conventional 16-bit machine? 
+We considered some design issues in a <a href="http://www.cs.utexas.edu/users/peterson/pdp429/pdp429_design.html"> design document </a>. What
+was the result?
+
+</p><h3> Memory </h3>
+
+Memory is 16-bit words. Memory addresses are 16-bit, word-addressable.  
+This allows up to 65,536 16-bit words of memory.
+
+<p>
+Integers are represented in two's complement binary
+notation.  There is no hardware support for floating
+point numbers.  Characters are 8-bit ASCII.
+
+</p><h3> Registers </h3>
+
+All registers are 16 bits (except the Link bit).
+There are 4 general purpose registers: A, B, C, D.
+
+<p>
+The Link bit is one bit.  It is never cleared by
+hardware. It is set whenever an arithmetic operation
+causes an overflow (ADD/SUB/Increment/Decrement/MUL)
+or a divide by zero (DIV).
+
+</p><p>
+In addition, there are 4 special purpose registers: 
+stack pointer (SP), stack pointer limit (SPL),
+program counter (PC), and processor status word (PSW),
+The low order bit of the processor status word 
+indicates if we are running or halted.
+
+</p><p>
+The stack grows down in memory; the stack pointer (SP) points
+to an empty location.  Pushing to the stack stores in the
+word that the stack pointer points to, and then the stack
+pointer is decremented by one.  Popping from the stack
+first increments the stack pointer by one, and then 
+uses the word that the stack pointer points at.  
+Errors include: (a) stack overflow, if SP &lt; SPL when a
+stack push starts
+and (b) stack underflow, if SP wraps around to zero
+(SP = 0xFFFF when a stack pop starts).
+
+</p><p>
+The program counter (PC) is the address of the next
+instruction.  After an instruction is fetched, the
+PC is incremented by one to point to the next instruction.
+A skip instruction may increment by one more.  A jump,
+call or return instruction may reset the PC to another
+value.  Arithmetic on the PC is modulo 16 bits, and
+does not cause overflow.
+
+</p><h3> Instructions </h3>
+
+There are 6 classes of instructions:
+
+<ol>
+<li> Non-register, Non-memory Instructions
+</li><li> Register Memory Reference Instructions
+</li><li> I/O Transfer Instructions
+</li><li> Non-register Memory Reference Instructions
+</li><li> Register-to-Register Instructions
+</li><li> Non-memory Register Instructions
+</li></ol>
+
+<h3> Non-register, Non-memory Instructions </h3>
+
+There are a small number of non-register, non-memory reference instructions.
+These instructions use the entire 16 bits as an opcode.  The high-order 6 bits
+of these instructions are 000000.
+<br><img src="./pdp429_files/nrnm_inst.gif">
+
+<ul>
+<li> 000000.0000000000 -- NOP.
+</li><li> 000000.0000000001 -- HLT.  The low-order bit of the PSW is set to 0; the machine halts.
+</li><li> 000000.0000000010 -- RET.  Pop the stack into the PC. 
+</li></ul>
+
+
+<h3> Register Memory Reference Instructions </h3>
+
+This class of instructions specifies a 4-bit opcode, 
+a 2-bit register selector, and a 10-bit memory address selector.
+<br><img src="./pdp429_files/rmr_inst.gif">
+
+<p> The 2-bit register selector determines the general
+purpose register used in the instruction:
+</p><ul>
+<li> 00 -- A register
+</li><li> 01 -- B register
+</li><li> 10 -- C register
+</li><li> 11 -- D register
+</li></ul>
+
+<p>
+The memory address selector includes a zero/current page
+indicator (Z/C), a direct/indirect (D/I) indicator,
+and an 8-bit page offset.  These are used to determine
+a memory address, just as with the PDP-8, except using
+pages of 256 words.  The memory-operand is the contents
+of that memory address.
+
+</p><p>
+The opcodes are:
+</p><ul>
+<li> 0001 -- ADD*:  the register + memory-operand -&gt; Reg
+</li><li> 0010 -- SUB*:  the register - memory-operand -&gt; Reg
+</li><li> 0011 -- MUL*:  the register * memory-operand -&gt; Reg
+</li><li> 0100 -- DIV*:  the register / memory-operand -&gt; Reg
+</li><li> 0101 -- AND*:  the register &amp; memory-operand -&gt; Reg
+</li><li> 0110 -- OR*:   the register | memory-operand -&gt; Reg
+</li><li> 0111 -- XOR*:  the register ^ memory-operand -&gt; Reg
+</li><li> 1000 -- LD*:   memory-operand -&gt; Reg
+</li><li> 1001 -- ST*:   the register -&gt; memory-operand
+</li></ul>
+
+The "*" in the opcode indicates the register selected: ADDA, ADDB, ADDC, ADDD, 
+and so on.
+
+
+<h3> I/O Transfer Instructions </h3>
+
+The IOT instruction has a 4-bit opcode of 1010, a 2-bit register selector,
+a 7-bit device number and a 3-bit function field.
+<br><img src="./pdp429_files/iot_inst.gif">
+
+<p>
+The 2-bit register selector is 
+the same as for the Register Memory Reference Instructions.
+
+</p><ul>
+<li> 1010 -- IOT*: the register, function -&gt; Device
+</li></ul>
+
+
+<h3> Non-register Memory Reference Instructions </h3>
+
+There are a small number of non-register memory reference instructions.
+These instructions combine the 4-bit opcode and 2-bit register fields of
+the Register Memory Reference Instructions to define a 6-bit opcode.
+<br><img src="./pdp429_files/nrmr_inst.gif">
+
+<p>
+The address of the memory-operand is computed 
+the same as for the Register Memory Reference Instructions.
+
+</p><p>
+The opcodes are:
+</p><ul>
+<li> 1011.00 -- ISZ:  memory-operand + 1 -&gt; memory-operand; if memory-operand == 0, PC + 1 -&gt; PC
+</li><li> 1011.01 -- JMP:  address of memory-operand -&gt; PC
+</li><li> 1011.10 -- CALL: push return address (PC + 1) on stack; address of memory-operand -&gt; PC
+</li><li> 1100.00 -- PUSH: push memory-operand to the stack
+</li><li> 1100.01 -- POP: pop top of stack and store in memory-operand.
+</li></ul>
+
+
+<h3> Register-to-Register Instructions </h3>
+
+The register-to-register instructions operate only on registers.
+A 3-bit register specifier is used to define a register.  The
+register-to-register instructions are 3-operand instructions.
+Each instruction includes three 3-bit register specifiers (i,j,k)
+and define an instruction Rj op Rk -&gt; Ri.  The instruction
+specifies a 4-bit opcode of 1110 followed by a 3-bit sub-opcode,
+and three 3-bit register specifiers.
+<br><img src="./pdp429_files/rr_inst.gif">
+
+<p> 
+The register specifiers are:
+</p><ul>
+<li> 000 -- A register
+</li><li> 001 -- B register
+</li><li> 010 -- C register
+</li><li> 011 -- D register
+</li><li> 100 -- PC register   (program counter)
+</li><li> 101 -- PSW register  (processor status word)
+</li><li> 110 -- SP register   (stack pointer)
+</li><li> 111 -- SPL register  (stack pointer limit)
+</li></ul>
+
+<p>
+The instructions are:
+</p><ul>
+<li> 1110.000 -- MOD:  Reg[j] % Reg[k] -&gt; Reg[i]
+</li><li> 1110.001 -- ADD:  Reg[j] + Reg[k] -&gt; Reg[i]
+</li><li> 1110.010 -- SUB:  Reg[j] - Reg[k] -&gt; Reg[i]
+</li><li> 1110.011 -- MUL:  Reg[j] * Reg[k] -&gt; Reg[i]
+</li><li> 1110.100 -- DIV:  Reg[j] / Reg[k] -&gt; Reg[i]
+</li><li> 1110.101 -- AND:  Reg[j] &amp; Reg[k] -&gt; Reg[i]
+</li><li> 1110.110 -- OR:   Reg[j] | Reg[k] -&gt; Reg[i]
+</li><li> 1110.111 -- XOR:  Reg[j] ^ Reg[k] -&gt; Reg[i]
+</li></ul>
+
+
+<h3> Non-memory Register Instructions </h3>
+
+This is like the operate instruction for the PDP-8. 
+<br><img src="./pdp429_files/nmr_inst.gif">
+
+<p> 
+The 2-bit register selector determines which general purpose
+register is used for this instruction.  The encoding is 
+the same as for the Register Memory Reference Instructions.
+
+</p><p> The individual bits for the Non-memory Register Instruction
+are:
+
+</p><ul>
+<li> SM* -- Skip if the register is negative (sign bit is 1)
+</li><li> SZ* -- Skip if the register is zero
+</li><li> SNL -- Skip if the Link bit is non-zero
+</li><li> RSS -- Reverse the Skip Sense
+</li><li> CL* -- Clear the register
+</li><li> CLL -- Clear the Link bit
+</li><li> CM* -- Complement the register
+</li><li> CML -- Complement the Link bit
+</li><li> DC* -- Decrement the register by one
+</li><li> IN* -- Increment the register by one
+</li></ul>
+
+The "*" in the opcode indicates the register selected: SMA, SMB, SMC, SMD, 
+and so on.
+
+<p>
+The bits are evaluated in the order listed above.
+
+
+</p><h2> Instruction map by Numeric Opcode </h2>
+
+<table>
+<tbody><tr><td> 0000.000000000000 </td> <td> NOP </td> <td> no operation </td></tr>
+<tr><td> 0000.000000000001 </td> <td> HLT </td> <td> halt the processor </td></tr>
+<tr><td> 0000.000000000010 </td> <td> RET </td> <td> pop stack -&gt; PC </td></tr>
+<tr><td> 0001.00 </td> <td> ADDA </td> <td>  A-register + memory-operand -&gt; A-register </td></tr>
+<tr><td> 0001.01 </td> <td> ADDB </td> <td>  B-register + memory-operand -&gt; B-register </td></tr>
+<tr><td> 0001.10 </td> <td> ADDC </td> <td>  C-register + memory-operand -&gt; C-register </td></tr>
+<tr><td> 0001.11 </td> <td> ADDD </td> <td>  D-register + memory-operand -&gt; D-register </td></tr>
+<tr><td> 0010.00 </td> <td> SUBA </td> <td>  A-register - memory-operand -&gt; A-register </td></tr>
+<tr><td> 0010.01 </td> <td> SUBB </td> <td>  B-register - memory-operand -&gt; B-register </td></tr>
+<tr><td> 0010.10 </td> <td> SUBC </td> <td>  C-register - memory-operand -&gt; C-register </td></tr>
+<tr><td> 0010.11 </td> <td> SUBD </td> <td>  D-register - memory-operand -&gt; D-register </td></tr>
+<tr><td> 0011.00 </td> <td> MULA </td> <td>  A-register * memory-operand -&gt; A-register </td></tr>
+<tr><td> 0011.01 </td> <td> MULB </td> <td>  B-register * memory-operand -&gt; B-register </td></tr>
+<tr><td> 0011.10 </td> <td> MULC </td> <td>  C-register * memory-operand -&gt; C-register </td></tr>
+<tr><td> 0011.11 </td> <td> MULD </td> <td>  D-register * memory-operand -&gt; D-register </td></tr>
+<tr><td> 0100.00 </td> <td> DIVA </td> <td>  A-register / memory-operand -&gt; A-register </td></tr>
+<tr><td> 0100.01 </td> <td> DIVB </td> <td>  B-register / memory-operand -&gt; B-register </td></tr>
+<tr><td> 0100.10 </td> <td> DIVC </td> <td>  C-register / memory-operand -&gt; C-register </td></tr>
+<tr><td> 0100.11 </td> <td> DIVD </td> <td>  D-register / memory-operand -&gt; D-register </td></tr>
+<tr><td> 0101.00 </td> <td> ANDA </td> <td>  A-register &amp; memory-operand -&gt; A-register </td></tr>
+<tr><td> 0101.01 </td> <td> ANDB </td> <td>  B-register &amp; memory-operand -&gt; B-register </td></tr>
+<tr><td> 0101.10 </td> <td> ANDC </td> <td>  C-register &amp; memory-operand -&gt; C-register </td></tr>
+<tr><td> 0101.11 </td> <td> ANDD </td> <td>  D-register &amp; memory-operand -&gt; D-register </td></tr>
+<tr><td> 0110.00 </td> <td> ORA </td> <td>   A-register | memory-operand -&gt; A-register </td></tr>
+<tr><td> 0110.01 </td> <td> ORB </td> <td>   B-register | memory-operand -&gt; B-register </td></tr>
+<tr><td> 0110.10 </td> <td> ORC </td> <td>   C-register | memory-operand -&gt; C-register </td></tr>
+<tr><td> 0110.11 </td> <td> ORD </td> <td>   D-register | memory-operand -&gt; D-register </td></tr>
+<tr><td> 0111.00 </td> <td> XORA </td> <td>  A-register ^ memory-operand -&gt; A-register </td></tr>
+<tr><td> 0111.01 </td> <td> XORB </td> <td>  B-register ^ memory-operand -&gt; B-register </td></tr>
+<tr><td> 0111.10 </td> <td> XORC </td> <td>  C-register ^ memory-operand -&gt; C-register </td></tr>
+<tr><td> 0111.11 </td> <td> XORD </td> <td>  D-register ^ memory-operand -&gt; D-register </td></tr>
+<tr><td> 1000.00 </td> <td> LDA </td> <td>   memory-operand -&gt; A-register </td></tr>
+<tr><td> 1000.01 </td> <td> LDB </td> <td>   memory-operand -&gt; B-register </td></tr>
+<tr><td> 1000.10 </td> <td> LDC </td> <td>   memory-operand -&gt; C-register </td></tr>
+<tr><td> 1000.11 </td> <td> LDD </td> <td>   memory-operand -&gt; D-register </td></tr>
+<tr><td> 1001.00 </td> <td> STA </td> <td>   A-register -&gt; memory-operand </td></tr>
+<tr><td> 1001.01 </td> <td> STB </td> <td>   B-register -&gt; memory-operand </td></tr>
+<tr><td> 1001.10 </td> <td> STC </td> <td>   C-register -&gt; memory-operand </td></tr>
+<tr><td> 1001.11 </td> <td> STD </td> <td>   D-register -&gt; memory-operand </td></tr>
+<tr><td> 1010.00 </td> <td> IOTA </td> <td>  A-register, function -&gt; Device </td></tr>
+<tr><td> 1010.01 </td> <td> IOTB </td> <td>  B-register, function -&gt; Device </td></tr>
+<tr><td> 1010.10 </td> <td> IOTC </td> <td>  C-register, function -&gt; Device </td></tr>
+<tr><td> 1010.11 </td> <td> IOTD </td> <td>  D-register, function -&gt; Device </td></tr>
+<tr><td> 1011.00 </td> <td> ISZ </td> <td>  memory-operand + 1 -&gt; memory-operand; if memory-operand == 0, PC + 1 -&gt; PC </td></tr>
+<tr><td> 1011.01 </td> <td> JMP </td> <td>  address of memory-operand -&gt; PC </td></tr>
+<tr><td> 1011.10 </td> <td> CALL </td> <td> push return address (PC + 1) on stack; address of memory-operand -&gt; PC </td></tr>
+<tr><td> 1100.00 </td> <td> PUSH </td> <td> push memory-operand to the stack </td></tr>
+<tr><td> 1100.01 </td> <td> POP </td> <td> pop top of stack and store in memory-operand. </td></tr>
+<tr><td> 1110.000 </td> <td> MOD </td> <td>  Reg[j] % Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.001 </td> <td> ADD </td> <td>  Reg[j] + Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.010 </td> <td> SUB </td> <td>  Reg[j] - Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.011 </td> <td> MUL </td> <td>  Reg[j] * Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.100 </td> <td> DIV </td> <td>  Reg[j] / Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.101 </td> <td> AND </td> <td>  Reg[j] &amp; Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.110 </td> <td> OR </td> <td>   Reg[j] | Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1110.111 </td> <td> XOR </td> <td>  Reg[j] ^ Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> 1111.00.1000000000 </td> <td> SMA </td> <td> Skip if the register is negative (sign bit is 1) </td></tr>
+<tr><td> 1111.01.1000000000 </td> <td> SMB </td> <td> Skip if the register is negative (sign bit is 1) </td></tr>
+<tr><td> 1111.10.1000000000 </td> <td> SMC </td> <td> Skip if the register is negative (sign bit is 1) </td></tr>
+<tr><td> 1111.11.1000000000 </td> <td> SMD </td> <td> Skip if the register is negative (sign bit is 1) </td></tr>
+<tr><td> 1111.00.0100000000 </td> <td> SZA </td> <td> Skip if the register is zero </td></tr>
+<tr><td> 1111.01.0100000000 </td> <td> SZB </td> <td> Skip if the register is zero </td></tr>
+<tr><td> 1111.10.0100000000 </td> <td> SZC </td> <td> Skip if the register is zero </td></tr>
+<tr><td> 1111.11.0100000000 </td> <td> SZD </td> <td> Skip if the register is zero </td></tr>
+<tr><td> 1111.00.0010000000 </td> <td> SNL </td> <td> Skip if the Link bit is non-zero </td></tr>
+<tr><td> 1111.00.0001000000 </td> <td> RSS </td> <td> Reverse the Skip Sense </td></tr>
+<tr><td> 1111.00.0000100000 </td> <td> CLA </td> <td> Clear the register </td></tr>
+<tr><td> 1111.01.0000100000 </td> <td> CLB </td> <td> Clear the register </td></tr>
+<tr><td> 1111.10.0000100000 </td> <td> CLC </td> <td> Clear the register </td></tr>
+<tr><td> 1111.11.0000100000 </td> <td> CLD </td> <td> Clear the register </td></tr>
+<tr><td> 1111.00.0000010000 </td> <td> CLL </td> <td> Clear the Link bit </td></tr>
+<tr><td> 1111.00.0000001000 </td> <td> CMA </td> <td> Complement the register </td></tr>
+<tr><td> 1111.01.0000001000 </td> <td> CMB </td> <td> Complement the register </td></tr>
+<tr><td> 1111.10.0000001000 </td> <td> CMC </td> <td> Complement the register </td></tr>
+<tr><td> 1111.11.0000001000 </td> <td> CMD </td> <td> Complement the register </td></tr>
+<tr><td> 1111.00.0000000100 </td> <td> CML </td> <td> Complement the Link bit </td></tr>
+<tr><td> 1111.00.0000000010 </td> <td> DCA </td> <td> Decrement the register by one </td></tr>
+<tr><td> 1111.01.0000000010 </td> <td> DCB </td> <td> Decrement the register by one </td></tr>
+<tr><td> 1111.10.0000000010 </td> <td> DCC </td> <td> Decrement the register by one </td></tr>
+<tr><td> 1111.11.0000000010 </td> <td> DCD </td> <td> Decrement the register by one </td></tr>
+<tr><td> 1111.00.0000000001 </td> <td> INA </td> <td> Increment the register by one </td></tr>
+<tr><td> 1111.01.0000000001 </td> <td> INB </td> <td> Increment the register by one </td></tr>
+<tr><td> 1111.10.0000000001 </td> <td> INC </td> <td> Increment the register by one </td></tr>
+<tr><td> 1111.11.0000000001 </td> <td> IND </td> <td> Increment the register by one </td></tr>
+</tbody></table><h2> Instruction map by Symbolic Opcode </h2><table>
+
+
+</table><table>
+<tbody><tr><td> ADD </td> <td> 1110.001</td> <td>  Reg[j] + Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> ADDA </td> <td> 0001.00</td> <td>  A-register + memory-operand -&gt; A-register </td></tr>
+<tr><td> ADDB </td> <td> 0001.01</td> <td>  B-register + memory-operand -&gt; B-register </td></tr>
+<tr><td> ADDC </td> <td> 0001.10</td> <td>  C-register + memory-operand -&gt; C-register </td></tr>
+<tr><td> ADDD </td> <td> 0001.11</td> <td>  D-register + memory-operand -&gt; D-register </td></tr>
+<tr><td> AND </td> <td> 1110.101</td> <td>  Reg[j] &amp; Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> ANDA </td> <td> 0101.00</td> <td>  A-register &amp; memory-operand -&gt; A-register </td></tr>
+<tr><td> ANDB </td> <td> 0101.01</td> <td>  B-register &amp; memory-operand -&gt; B-register </td></tr>
+<tr><td> ANDC </td> <td> 0101.10</td> <td>  C-register &amp; memory-operand -&gt; C-register </td></tr>
+<tr><td> ANDD </td> <td> 0101.11</td> <td>  D-register &amp; memory-operand -&gt; D-register </td></tr>
+<tr><td> CALL </td> <td> 1011.10</td> <td> push return address (PC + 1) on stack; address of memory-operand -&gt; PC </td></tr>
+<tr><td> CLA </td> <td> 1111.00.0000100000</td> <td> Clear A-register </td></tr>
+<tr><td> CLB </td> <td> 1111.01.0000100000</td> <td> Clear B-register </td></tr>
+<tr><td> CLC </td> <td> 1111.10.0000100000</td> <td> Clear C-register </td></tr>
+<tr><td> CLD </td> <td> 1111.11.0000100000</td> <td> Clear D-register </td></tr>
+<tr><td> CLL </td> <td> 1111.00.0000010000</td> <td> Clear the Link bit </td></tr>
+<tr><td> CMA </td> <td> 1111.00.0000001000</td> <td> Complement A-register </td></tr>
+<tr><td> CMB </td> <td> 1111.01.0000001000</td> <td> Complement B-register </td></tr>
+<tr><td> CMC </td> <td> 1111.10.0000001000</td> <td> Complement C-register </td></tr>
+<tr><td> CMD </td> <td> 1111.11.0000001000</td> <td> Complement D-register </td></tr>
+<tr><td> CML </td> <td> 1111.00.0000000100</td> <td> Complement the Link bit </td></tr>
+<tr><td> DCA </td> <td> 1111.00.0000000010</td> <td> Decrement A-register by one </td></tr>
+<tr><td> DCB </td> <td> 1111.01.0000000010</td> <td> Decrement B-register by one </td></tr>
+<tr><td> DCC </td> <td> 1111.10.0000000010</td> <td> Decrement C-register by one </td></tr>
+<tr><td> DCD </td> <td> 1111.11.0000000010</td> <td> Decrement D-register by one </td></tr>
+<tr><td> DIV </td> <td> 1110.100</td> <td>  Reg[j] / Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> DIVA </td> <td> 0100.00</td> <td>  A-register / memory-operand -&gt; A-register </td></tr>
+<tr><td> DIVB </td> <td> 0100.01</td> <td>  B-register / memory-operand -&gt; B-register </td></tr>
+<tr><td> DIVC </td> <td> 0100.10</td> <td>  C-register / memory-operand -&gt; C-register </td></tr>
+<tr><td> DIVD </td> <td> 0100.11</td> <td>  D-register / memory-operand -&gt; D-register </td></tr>
+<tr><td> HLT </td> <td> 0000.000000000001</td> <td> </td></tr>
+<tr><td> INA </td> <td> 1111.00.0000000001</td> <td> Increment A-register by one </td></tr>
+<tr><td> INB </td> <td> 1111.01.0000000001</td> <td> Increment B-register by one </td></tr>
+<tr><td> INC </td> <td> 1111.10.0000000001</td> <td> Increment C-register by one </td></tr>
+<tr><td> IND </td> <td> 1111.11.0000000001</td> <td> Increment D-register by one </td></tr>
+<tr><td> IOTA </td> <td> 1010.00</td> <td>  A-register, function -&gt; Device </td></tr>
+<tr><td> IOTB </td> <td> 1010.01</td> <td>  B-register, function -&gt; Device </td></tr>
+<tr><td> IOTC </td> <td> 1010.10</td> <td>  C-register, function -&gt; Device </td></tr>
+<tr><td> IOTD </td> <td> 1010.11</td> <td>  D-register, function -&gt; Device </td></tr>
+<tr><td> ISZ </td> <td> 1011.00</td> <td>  memory-operand + 1 -&gt; memory-operand; if memory-operand == 0, PC + 1 -&gt; PC </td></tr>
+<tr><td> JMP </td> <td> 1011.01</td> <td>  address of memory-operand -&gt; PC </td></tr>
+<tr><td> LDA </td> <td> 1000.00</td> <td>   memory-operand -&gt; A-register </td></tr>
+<tr><td> LDB </td> <td> 1000.01</td> <td>   memory-operand -&gt; B-register </td></tr>
+<tr><td> LDC </td> <td> 1000.10</td> <td>   memory-operand -&gt; C-register </td></tr>
+<tr><td> LDD </td> <td> 1000.11</td> <td>   memory-operand -&gt; D-register </td></tr>
+<tr><td> MOD </td> <td> 1110.000</td> <td>  Reg[j] % Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> MUL </td> <td> 1110.011</td> <td>  Reg[j] * Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> MULA </td> <td> 0011.00</td> <td>  A-register * memory-operand -&gt; A-register </td></tr>
+<tr><td> MULB </td> <td> 0011.01</td> <td>  B-register * memory-operand -&gt; B-register </td></tr>
+<tr><td> MULC </td> <td> 0011.10</td> <td>  C-register * memory-operand -&gt; C-register </td></tr>
+<tr><td> MULD </td> <td> 0011.11</td> <td>  D-register * memory-operand -&gt; D-register </td></tr>
+<tr><td> NOP </td> <td> 0000.000000000000</td> <td> </td></tr>
+<tr><td> OR </td> <td> 1110.110</td> <td>   Reg[j] | Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> ORA </td> <td> 0110.00</td> <td>   A-register | memory-operand -&gt; A-register </td></tr>
+<tr><td> ORB </td> <td> 0110.01</td> <td>   B-register | memory-operand -&gt; B-register </td></tr>
+<tr><td> ORC </td> <td> 0110.10</td> <td>   C-register | memory-operand -&gt; C-register </td></tr>
+<tr><td> ORD </td> <td> 0110.11</td> <td>   D-register | memory-operand -&gt; D-register </td></tr>
+<tr><td> POP </td> <td> 1100.01</td> <td> pop top of stack and store in memory-operand. </td></tr>
+<tr><td> PUSH </td> <td> 1100.00</td> <td> push memory-operand to the stack </td></tr>
+<tr><td> RET </td> <td> 0000.000000000010</td> <td> pop stack -&gt; PC </td></tr>
+<tr><td> RSS </td> <td> 1111.00.0001000000</td> <td> Reverse the Skip Sense </td></tr>
+<tr><td> SMA </td> <td> 1111.00.1000000000</td> <td> Skip if A-register is negative (sign bit is 1) </td></tr>
+<tr><td> SMB </td> <td> 1111.01.1000000000</td> <td> Skip if B-register is negative (sign bit is 1) </td></tr>
+<tr><td> SMC </td> <td> 1111.10.1000000000</td> <td> Skip if C-register is negative (sign bit is 1) </td></tr>
+<tr><td> SMD </td> <td> 1111.11.1000000000</td> <td> Skip if D-register is negative (sign bit is 1) </td></tr>
+<tr><td> SNL </td> <td> 1111.00.0010000000</td> <td> Skip if the Link bit is non-zero </td></tr>
+<tr><td> STA </td> <td> 1001.00</td> <td>   A-register -&gt; memory-operand </td></tr>
+<tr><td> STB </td> <td> 1001.01</td> <td>   B-register -&gt; memory-operand </td></tr>
+<tr><td> STC </td> <td> 1001.10</td> <td>   C-register -&gt; memory-operand </td></tr>
+<tr><td> STD </td> <td> 1001.11</td> <td>   D-register -&gt; memory-operand </td></tr>
+<tr><td> SUB </td> <td> 1110.010</td> <td>  Reg[j] - Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> SUBA </td> <td> 0010.00</td> <td>  A-register - memory-operand -&gt; A-register </td></tr>
+<tr><td> SUBB </td> <td> 0010.01</td> <td>  B-register - memory-operand -&gt; B-register </td></tr>
+<tr><td> SUBC </td> <td> 0010.10</td> <td>  C-register - memory-operand -&gt; C-register </td></tr>
+<tr><td> SUBD </td> <td> 0010.11</td> <td>  D-register - memory-operand -&gt; D-register </td></tr>
+<tr><td> SZA </td> <td> 1111.00.0100000000</td> <td> Skip if A-register is zero </td></tr>
+<tr><td> SZB </td> <td> 1111.01.0100000000</td> <td> Skip if B-register is zero </td></tr>
+<tr><td> SZC </td> <td> 1111.10.0100000000</td> <td> Skip if C-register is zero </td></tr>
+<tr><td> SZD </td> <td> 1111.11.0100000000</td> <td> Skip if D-register is zero </td></tr>
+<tr><td> XOR </td> <td> 1110.111</td> <td>  Reg[j] ^ Reg[k] -&gt; Reg[i] </td></tr>
+<tr><td> XORA </td> <td> 0111.00</td> <td>  A-register ^ memory-operand -&gt; A-register </td></tr>
+<tr><td> XORB </td> <td> 0111.01</td> <td>  B-register ^ memory-operand -&gt; B-register </td></tr>
+<tr><td> XORC </td> <td> 0111.10</td> <td>  C-register ^ memory-operand -&gt; C-register </td></tr>
+<tr><td> XORD </td> <td> 0111.11</td> <td>  D-register ^ memory-operand -&gt; D-register </td></tr>
+</tbody></table>
+
+
+
+
+</body></html>
