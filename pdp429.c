@@ -3,50 +3,50 @@
 	EID: wo783
 */
 
-// stderr
-
 //Library Imports
-#include <stdlib.h>
-#include <stdio.h>
+	#include <stdlib.h>
+	#include <stdio.h>
+
 
 //Registers
-int reg_arr[9];
-#define a reg_arr[0]
-#define b reg_arr[1]
-#define c reg_arr[2]
-#define d reg_arr[3]
-#define pc reg_arr[4]
-#define psw reg_arr[5]
-#define sp reg_arr[6]
-#define spl reg_arr[7]
-#define link_bit reg_arr[8]
+	int reg_arr[9];
+	#define a reg_arr[0]
+	#define b reg_arr[1]
+	#define c reg_arr[2]
+	#define d reg_arr[3]
+	#define pc reg_arr[4]
+	#define psw reg_arr[5]
+	#define sp reg_arr[6]
+	#define spl reg_arr[7]
+	#define link_bit reg_arr[8]
+
 
 //Function Prototypes
-void process_obj(void);
-void run(void);
-void zero(int instruction);
-void add(int instruction);
-void sub(int instruction);
-void mul(int instruction);
-void dvd(int instruction);
-void and(int instruction);
-void or(int instruction);
-void xor(int instruction);
-void ld(int instruction);
-void st(int instruction);
-void iot(int instruction);
-void mov(int instruction);
-void stk(int instruction);
-void reg(int instruction);
-void opr(int instruction);
+	void process_obj(void);
+	void run(void);
+	void zero(int instruction);
+	void add(int instruction);
+	void sub(int instruction);
+	void mul(int instruction);
+	void dvd(int instruction);
+	void and(int instruction);
+	void or(int instruction);
+	void xor(int instruction);
+	void ld(int instruction);
+	void st(int instruction);
+	void iot(int instruction);
+	void mov(int instruction);
+	void stk(int instruction);
+	void reg(int instruction);
+	void opr(int instruction);
+
 
 //Interpreter Variables
-int verbose = 0;
-FILE *input = NULL;
-int mem[65536];
-long long int time = 0;
-char *verbose_format = "Time %3lld: PC=0x%04X instruction = 0x%04X (%s)";
-
+	int verbose = 0;
+	FILE *input = NULL;
+	int mem[65536];
+	long long int time = 0;
+	char *verbose_format = "Time %3lld: PC=0x%04X instruction = 0x%04X (%s)";
 
 
 int main(int argc, char const *argv[]){
@@ -83,6 +83,7 @@ int main(int argc, char const *argv[]){
 	return 0;
 }
 
+
 void process_obj(void){
 	int block_size = 0;
 	int current_size = 0;
@@ -105,10 +106,6 @@ void process_obj(void){
 
 		while(current_size < block_size){
 			mem[current_addr] = (getc(input) << 8) + getc(input);
-
-			// fprintf(stderr, "0x%0x :   0x%0x\n", 
-			// 	current_addr, mem[current_addr]);
-
 			current_addr++;
 			current_size += 2;
 		}
@@ -116,6 +113,7 @@ void process_obj(void){
 		block_size = getc(input);
 	}
 }
+
 
 void run(void){
 	a = 0;
@@ -129,9 +127,9 @@ void run(void){
 
 	int instruction = 0;
 	int opcode = 0;
-	int rest = 0;
 
 	while(psw){
+
 		//fetch
 		instruction = mem[pc];
 		time++;
@@ -196,6 +194,7 @@ void run(void){
 	}
 }
 
+
 void zero(int instruction){
 	char *op;
 	int old_pc = pc;
@@ -223,7 +222,7 @@ void zero(int instruction){
 			if(verbose){
 				fprintf(stderr, verbose_format, 
 					time, old_pc, instruction, op);
-				fprintf(stderr, ": %s -> 0x%04x, 0x%04x -> %s\n", 
+				fprintf(stderr, ": %s -> 0x%04X, 0x%04X -> %s\n", 
 					"PSW", old_psw, psw, "PSW");
 			}
 
@@ -237,11 +236,12 @@ void zero(int instruction){
 				link_bit = 1;
 			}
 			pc = mem[sp];
+			time++;
 
 			if(verbose){
 				fprintf(stderr, verbose_format, 
 					time, old_pc, instruction, op);
-				fprintf(stderr, ": SP -> 0x%04x, 0x%04x -> SP, M[0x%04x] -> 0x%04x, 0x%04x -> PC\n", 
+				fprintf(stderr, ": SP -> 0x%04X, 0x%04X -> SP, M[0x%04X] -> 0x%04X, 0x%04X -> PC\n", 
 					old_sp, sp, sp, pc, pc);
 			}
 
@@ -260,6 +260,8 @@ void add(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int overflow = 0;
+	int old_address = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -268,6 +270,7 @@ void add(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -280,8 +283,10 @@ void add(int instruction){
 			r = a + x;
 
 			if(((a & 0x8000) == (x & 0x8000)) && 
-				((a & 0x8000) != (r & 0x8000)))
+				((a & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			a = r & 0xFFFF;
 			time++;
@@ -294,8 +299,10 @@ void add(int instruction){
 			r = b + x;
 
 			if(((b & 0x8000) == (x & 0x8000)) && 
-				((b & 0x8000) != (r & 0x8000)))
+				((b & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			b = r & 0xFFFF;
 			time++;
@@ -308,8 +315,10 @@ void add(int instruction){
 			r = c + x;
 
 			if(((c & 0x8000) == (x & 0x8000)) && 
-				((c & 0x8000) != (r & 0x8000)))
+				((c & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			c = r & 0xFFFF;
 			time++;
@@ -322,8 +331,10 @@ void add(int instruction){
 			r = d + x;
 
 			if(((d & 0x8000) == (x & 0x8000)) && 
-				((d & 0x8000) != (r & 0x8000)))
+				((d & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			d = r & 0xFFFF;
 			time++;
@@ -332,8 +343,26 @@ void add(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			if(overflow){
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
+		else{
+			if(overflow){
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
 	}
 
 	pc++;
@@ -346,7 +375,9 @@ void sub(int instruction){
 	char *op;
 	char reg_name;
 	int reg_val;
+	int old_address = 0;
 	int x, r;
+	int overflow = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -355,6 +386,7 @@ void sub(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -367,8 +399,10 @@ void sub(int instruction){
 			r = a - x;
 
 			if(((a & 0x8000) == (x & 0x8000)) && 
-				((a & 0x8000) != (r & 0x8000)))
+				((a & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			a = r & 0xFFFF;
 			time++;
@@ -381,8 +415,10 @@ void sub(int instruction){
 			r = b - x;
 
 			if(((b & 0x8000) == (x & 0x8000)) && 
-				((b & 0x8000) != (r & 0x8000)))
+				((b & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			b = r & 0xFFFF;
 			time++;
@@ -395,8 +431,10 @@ void sub(int instruction){
 			r = c - x;
 
 			if(((c & 0x8000) == (x & 0x8000)) && 
-				((c & 0x8000) != (r & 0x8000)))
+				((c & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			c = r & 0xFFFF;
 			time++;
@@ -409,8 +447,10 @@ void sub(int instruction){
 			r = d - x;
 
 			if(((d & 0x8000) == (x & 0x8000)) && 
-				((d & 0x8000) != (r & 0x8000)))
+				((d & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			d = r & 0xFFFF;
 			time++;
@@ -419,8 +459,26 @@ void sub(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			if(overflow){
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
+		else{
+			if(overflow){
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
 	}
 
 	pc++;
@@ -434,6 +492,8 @@ void mul(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int old_address = 0;
+	int overflow = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -442,6 +502,7 @@ void mul(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -454,8 +515,10 @@ void mul(int instruction){
 			r = a * x;
 
 			if(((a & 0x8000) == (x & 0x8000)) && 
-				((a & 0x8000) != (r & 0x8000)))
+				((a & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			a = r & 0xFFFF;
 			time++;
@@ -468,8 +531,10 @@ void mul(int instruction){
 			r = b * x;
 
 			if(((b & 0x8000) == (x & 0x8000)) && 
-				((b & 0x8000) != (r & 0x8000)))
+				((b & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			b = r & 0xFFFF;
 			time++;
@@ -482,8 +547,10 @@ void mul(int instruction){
 			r = c * x;
 
 			if(((c & 0x8000) == (x & 0x8000)) && 
-				((c & 0x8000) != (r & 0x8000)))
+				((c & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			c = r & 0xFFFF;
 			time++;
@@ -496,8 +563,10 @@ void mul(int instruction){
 			r = d * x;
 
 			if(((d & 0x8000) == (x & 0x8000)) && 
-				((d & 0x8000) != (r & 0x8000)))
+				((d & 0x8000) != (r & 0x8000))){
 				link_bit = (link_bit ? 0 : 1);
+				overflow = 1;
+			}
 
 			d = r & 0xFFFF;
 			time++;
@@ -506,8 +575,26 @@ void mul(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			if(overflow){
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
+		else{
+			if(overflow){
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
 	}
 
 	pc++;
@@ -521,6 +608,8 @@ void dvd(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int old_address = 0;
+	int overflow = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -529,6 +618,7 @@ void dvd(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -538,7 +628,14 @@ void dvd(int instruction){
 			reg_name = 'A';
 			reg_val = a;
 			x = mem[address];
-			r = a / x;
+			if(x == 0){
+				r = 0;
+				overflow = 1;
+				link_bit = 1;
+			}
+			else{
+				r = a / x;
+			}
 			a = r & 0xFFFF;
 			time++;
 			break;
@@ -547,7 +644,14 @@ void dvd(int instruction){
 			reg_name = 'B';
 			reg_val = b;
 			x = mem[address];
-			r = b / x;
+			if(x == 0){
+				r = 0;
+				overflow = 1;
+				link_bit = 1;
+			}
+			else{
+				r = b / x;
+			}
 			b = r & 0xFFFF;
 			time++;
 			break;
@@ -556,7 +660,14 @@ void dvd(int instruction){
 			reg_name = 'C';
 			reg_val = c;
 			x = mem[address];
-			r = c / x;
+			if(x == 0){
+				r = 0;
+				overflow = 1;
+				link_bit = 1;
+			}
+			else{
+				r = c / x;
+			}
 			c = r & 0xFFFF;
 			time++;
 			break;
@@ -565,7 +676,14 @@ void dvd(int instruction){
 			reg_name = 'D';
 			reg_val = d;
 			x = mem[address];
-			r = d / x;
+			if(x == 0){
+				r = 0;
+				overflow = 1;
+				link_bit = 1;
+			}
+			else{
+				r = d / x;
+			}
 			d = r & 0xFFFF;
 			time++;
 			break;
@@ -573,8 +691,26 @@ void dvd(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			if(overflow){
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					old_address, address, reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
+		else{
+			if(overflow){
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> L, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, link_bit, r, reg_name);
+			}
+			else{
+				fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+					reg_name, reg_val, address, x, r, reg_name);
+			}
+		}
 	}
 
 	pc++;
@@ -588,6 +724,7 @@ void and(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int old_address = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -596,6 +733,7 @@ void and(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -640,8 +778,14 @@ void and(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				old_address, address, reg_name, reg_val, address, x, r, reg_name);
+		}
+		else{
+			fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				reg_name, reg_val, address, x, r, reg_name);
+		}
 	}
 
 	pc++;
@@ -655,6 +799,7 @@ void or(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int old_address = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -663,6 +808,7 @@ void or(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -707,8 +853,14 @@ void or(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				old_address, address, reg_name, reg_val, address, x, r, reg_name);
+		}
+		else{
+			fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				reg_name, reg_val, address, x, r, reg_name);
+		}
 	}
 
 	pc++;
@@ -722,6 +874,7 @@ void xor(int instruction){
 	char reg_name;
 	int reg_val;
 	int x, r;
+	int old_address = 0;
 
 
 	address += (instruction & 0x00FF);
@@ -730,6 +883,7 @@ void xor(int instruction){
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -774,12 +928,19 @@ void xor(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %c -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
-			reg_name, reg_val, address, x, r, reg_name);
+		if(indirect){
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				old_address, address, reg_name, reg_val, address, x, r, reg_name);
+		}
+		else{
+			fprintf(stderr, ": %c -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
+				reg_name, reg_val, address, x, r, reg_name);
+		}
 	}
 
 	pc++;
 }
+
 
 void ld(int instruction){
 	int reg_num = (instruction & 0x0C00) >> 10;
@@ -825,17 +986,18 @@ void ld(int instruction){
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
 		if(indirect){
-			fprintf(stderr, ": M[0x%04x] -> 0x%04x, M[0x%04x] -> 0x%04x, 0x%04x -> %c\n",
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> %c\n",
 				old_address, address, address, reg_arr[reg_num], reg_arr[reg_num], reg_name);
 		}
 		else{
-			fprintf(stderr, ": M[0x%04x] -> 0x%04x, 0x%04x -> %c\n", 
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, 0x%04X -> %c\n", 
 				address, reg_arr[reg_num], reg_arr[reg_num], reg_name);
 		}
 	}
 
 	pc++;
 }
+
 
 void st(int instruction){
 	int indirect = instruction & 0x0200;
@@ -889,11 +1051,11 @@ void st(int instruction){
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
 		if(indirect){
-			fprintf(stderr, ": M[0x%04x] -> 0x%04x, %c -> 0x%04x, 0x%04x -> M[0x%04x]\n",
+			fprintf(stderr, ": M[0x%04X] -> 0x%04X, %c -> 0x%04X, 0x%04X -> M[0x%04X]\n",
 				old_address, address, reg_name, reg_val, reg_val, address);
 		}
 		else{
-			fprintf(stderr, ": %c -> 0x%04x, 0x%04x -> M[0x%04x]\n", 
+			fprintf(stderr, ": %c -> 0x%04X, 0x%04X -> M[0x%04X]\n", 
 				reg_name, reg_val, reg_val, address);
 		}
 	}
@@ -982,10 +1144,10 @@ void iot(int instruction){
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
 		if(device == 3){
-			fprintf(stderr, ": 0x%04x -> %c\n", reg_val, reg_name);
+			fprintf(stderr, ": 0x%04X -> %c\n", reg_val, reg_name);
 		}
 		else if(device == 4){
-			fprintf(stderr, ": %c -> 0x%04x\n", reg_name, reg_val);
+			fprintf(stderr, ": %c -> 0x%04X\n", reg_name, reg_val);
 		}
 		else{
 			fprintf(stderr, "\n");
@@ -1002,16 +1164,16 @@ void mov(int instruction){
 	int old_val = 0;
 	int address = 0;
 	int old_psw = psw;
-	int old_pc = 0;
+	int old_pc = pc;
 	char *op = "";
-	
-	old_address = address;
+
 	address += (instruction & 0x00FF);
 	if(instruction & 0x0100){
 		address += (pc & 0xFF00);
 	}
 	if(indirect){
 		time++;
+		old_address = address;
 		address = mem[address];
 	}
 
@@ -1022,14 +1184,21 @@ void mov(int instruction){
 			pc++;
 			old_val = mem[address];
 			mem[address]++;
+			time++;
 			if(mem[address] == 0){
 				pc++;
 			}
 
 			if(verbose){
 				fprintf(stderr, verbose_format, time, old_pc, instruction, op);
-				fprintf(stderr, ": M[0x%04x] -> 0x%04x, 0x%04x, M[0x%04x]\n", 
-					address, old_val, mem[address], address);
+				if(indirect){
+					fprintf(stderr, ": M[0x%04X] -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X, M[0x%04X]\n", 
+						old_address, address, address, old_val, mem[address], address);
+				}
+				else{
+					fprintf(stderr, ": M[0x%04X] -> 0x%04X, 0x%04X, M[0x%04X]\n", 
+						address, old_val, mem[address], address);
+				}
 			}
 			break;
 		case 1:
@@ -1040,11 +1209,11 @@ void mov(int instruction){
 			if(verbose){
 				fprintf(stderr, verbose_format, time, old_pc, instruction, op);
 				if(indirect){
-					fprintf(stderr, ": M[0x%04x] -> 0x%04x, 0x%04x -> PC\n", 
+					fprintf(stderr, ": M[0x%04X] -> 0x%04X, 0x%04X -> PC\n", 
 						address, pc, pc);
 				}
 				else{
-					fprintf(stderr, ": 0x%04x -> PC\n", pc);
+					fprintf(stderr, ": 0x%04X -> PC\n", pc);
 				}
 			}
 			break;
@@ -1057,23 +1226,24 @@ void mov(int instruction){
 			else{
 				op = (indirect ? "I CALL" : "CALL");
 				mem[sp] = pc + 1;
+				time++;
 				sp--;
 				pc = address;
 			}
 
 			if(verbose){
-				fprintf(stderr, verbose_format, time, pc, instruction, op);
+				fprintf(stderr, verbose_format, time, old_pc, instruction, op);
 				if(psw == 0){
-					fprintf(stderr, ": M[0x%04x] -> 0x%04x, PSW -> 0x%04x, 0x%04x -> PSW\n", 
+					fprintf(stderr, ": M[0x%04X] -> 0x%04X, PSW -> 0x%04X, 0x%04X -> PSW\n", 
 						address, mem[address], old_psw, psw);
 				}
 				else{
 					if(indirect){				
-						fprintf(stderr, ": M[0x%04x] -> 0x%04x, 0x%04x -> M[0x%04x], 0x%04x -> SP, 0x%04x -> PC\n", 
+						fprintf(stderr, ": M[0x%04X] -> 0x%04X, 0x%04X -> M[0x%04X], 0x%04X -> SP, 0x%04X -> PC\n", 
 							old_address, address, old_pc + 1, sp + 1, sp, pc);
 					}
 					else{
-						fprintf(stderr, ": 0x%04x -> M[0x%04x], 0x%04x -> SP, 0x%04x -> PC\n", 
+						fprintf(stderr, ": 0x%04X -> M[0x%04X], 0x%04X -> SP, 0x%04X -> PC\n", 
 							old_pc + 1, sp + 1, sp, pc);
 					}
 				}
@@ -1091,6 +1261,8 @@ void stk(int instruction){
 	int indirect = instruction & 0x0200;
 	int address = 0;
 	int old_psw = psw;
+	int old_sp = sp;
+	int old_address = 0;
 	char *op;
 
 	address += instruction & 0xFF;
@@ -1098,6 +1270,7 @@ void stk(int instruction){
 		address += pc & 0xFF00;
 	}
 	if(indirect){
+		old_address = address;
 		address = mem[address];
 		time++;
 	}
@@ -1106,9 +1279,12 @@ void stk(int instruction){
 		case 0:
 			if(sp < spl){
 				//overflow
+				time++;
 				psw = 0;
 				op = indirect ? "I PUSH Stack Overflow" : "PUSH Stack Overflow";
-				fprintf(stderr, "Stack Pointer = 0x%04x; Stack Limit = 0x%04x\n", sp, spl);
+				if(verbose){
+					fprintf(stderr, "Stack Pointer = 0x%04X; Stack Limit = 0x%04X\n", sp, spl);
+				}
 			}
 			else{
 				//push
@@ -1121,28 +1297,63 @@ void stk(int instruction){
 			if(verbose){
 				fprintf(stderr, verbose_format, time, pc, instruction, op);
 				if(psw == 0){
-					fprintf(stderr, ": M[0x%04x] -> 0x%04x, PSW -> 0x%04x, 0x%04x -> PSW\n", 
+					fprintf(stderr, ": M[0x%04X] -> 0x%04X, PSW -> 0x%04X, 0x%04X -> PSW\n", 
 						address, mem[address], old_psw, psw);
 				}
 				else{
-					fprintf(stderr, ": M[0x%04x] -> 0x%04x, 0x%04x -> M[0x%04x], 0x%04x -> SP\n", 
-						address, mem[address], mem[address], sp + 1, sp);
+					if(indirect){
+						fprintf(stderr, ": M[0x%04X] -> 0x%04X, M[0x%04X] -> 0x%04X, 0x%04X -> M[0x%04X], 0x%04X -> SP\n", 
+							old_address, address, address, mem[address], mem[address], old_sp, sp);
+					}
+					else{
+						fprintf(stderr, ": M[0x%04X] -> 0x%04X, 0x%04X -> M[0x%04X], 0x%04X -> SP\n", 
+							address, mem[address], mem[address], old_sp, sp);
+					}
+					
 				}
 			}
-
 			break;
 		case 1:
 			if(sp >= 0xFFFF){
 				//underflow
+				time++;
+				psw = 0;
+				op = indirect ? "I PUSH Stack Underflow" : "PUSH Stack Underflow";
+				if(verbose){
+					fprintf(stderr, "Stack Pointer = 0x%04X; Stack Limit = 0x%04X\n", sp, spl);
+				}
 			}
 			else{
 				//pop
+				op = indirect ? "I POP" : "POP";
+				sp++;
+				mem[address] = mem[sp];
+				time += 2;
+			}
+
+			if(verbose){
+				fprintf(stderr, verbose_format, time, pc, instruction, op);
+				if(psw == 0){
+					fprintf(stderr, "XXX");
+				}
+				else{
+					if(indirect){
+						fprintf(stderr, ": M[0x%04X] -> 0x%04X, SP -> 0x%04X, 0x%04X -> SP, M[0x%04X] -> 0x%04X, 0x%04X -> M[0x%04X]\n", 
+							old_address, address, old_sp, sp, sp, mem[address], mem[address], address);
+					}
+					else{
+						fprintf(stderr, ": SP -> 0x%04X, 0x%04X -> SP, M[0x%04X] -> 0x%04X, 0x%04X -> M[0x%04X]\n", 
+							old_sp, sp, sp, mem[address], mem[address], address);
+					}
+				}
 			}
 			break;
 		default:
 			fprintf(stderr, "Invalid Opcode (stk)\n");
 			exit(1);
 	}
+
+	pc++;
 }
 
 
@@ -1150,6 +1361,9 @@ void reg(int instruction){
 	int reg1 = (instruction & 0x01C0) >> 6;
 	int reg2 = (instruction & 0x0038) >> 3;
 	int reg3 = instruction & 0x0007;
+	int val1 = 0;
+	int val2 = reg_arr[reg2];
+	int val3 = reg_arr[reg3];
 	char *name1;
 	char *name2;
 	char *name3;
@@ -1217,6 +1431,8 @@ void reg(int instruction){
 			fprintf(stderr, "Invalid Opcode (reg)\n");
 			exit(1);
 	}
+
+	val1 = reg_arr[reg1];
 
 	switch(reg1){
 		case 0:
@@ -1308,8 +1524,8 @@ void reg(int instruction){
 
 	if(verbose){
 		fprintf(stderr, verbose_format, time, pc, instruction, op);
-		fprintf(stderr, ": %s -> 0x%04x, %s -> 0x%04x, 0x%04x -> %s\n", 
-			name2, reg_arr[reg2], name3, reg_arr[reg3], reg_arr[reg1], name1);
+		fprintf(stderr, ": %s -> 0x%04X, %s -> 0x%04X, 0x%04X -> %s\n", 
+			name2, val2, name3, val3, val1, name1);
 	}
 
 	pc++;
@@ -1317,5 +1533,77 @@ void reg(int instruction){
 
 
 void opr(int instruction){
-	//work
+	int reverse = (instruction & 0x0040);
+	int reg_num = (instruction & 0x0C00) >> 10;
+
+	if(instruction & 0x0200){
+		//SM*
+		if(reverse){
+			if(!(reg_arr[reg_num] & 0x800)){
+				pc++;
+			}
+		}
+		else{
+			if(reg_arr[reg_num] & 0x8000){
+				pc++;
+			}
+		}
+	}
+	if(instruction & 0x0100){
+		//SZ*
+		if(reverse){
+			if(!((reg_arr[reg_num] & 0xFFFF) == 0)){
+				pc++;
+			}
+		}
+		else{
+			if((reg_arr[reg_num] & 0xFFFF) == 0){
+				pc++;
+			}
+		}
+	}
+	if(instruction & 0x0080){
+		//SNL
+		if(reverse){
+			if(!(link_bit != 0)){
+				pc++;
+			}
+		}
+		else{
+			if(link_bit != 0){
+				pc++;
+			}
+		}
+	}
+	if(instruction & 0x0040){
+		//RSS
+	}
+	if(instruction & 0x0020){
+		//CL*
+		reg_arr[reg_num] = 0;
+	}
+	if(instruction & 0x0010){
+		//CLL
+		link_bit = 0;
+	}
+	if(instruction & 0x0008){
+		//CM*
+		reg_arr[reg_num] = (~reg_arr[reg_num]) & 0xFFFF;
+	}
+	if(instruction & 0x0004){
+		//CML
+		link_bit = (link_bit ? 0 : 1);
+	}
+	if(instruction & 0x0002){
+		//DC*
+		reg_arr[reg_num]--;
+		reg_arr[reg_num] &= 0xFFFF;
+	}
+	if(instruction & 0x0001){
+		//IC*
+		reg_arr[reg_num]++;
+		reg_arr[reg_num] &= 0xFFFF;
+	}
+	
+	pc++;
 }
